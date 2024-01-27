@@ -1316,6 +1316,19 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 // The limit, in watts, that the power supply for your project can supply.  If your demands
 // exceed this, the code wil try to scale back brightness to hit this.  Don't rely on this
 // for safety, obviously, design your hardware to protect against it with a fuse, etc.
+#ifndef POWER_LIMIT_MW
+    #ifdef NUM_LEDS
+        #ifdef WATS_PER_LED
+            #define POWER_LIMIT_MW NUM_LEDS*WATS_PER_LED*1000
+        #else
+            #ifdef LED_VOLTAGE
+                #ifdef AMPS_PER_LED
+                    #define POWER_LIMIT_MW NUM_LEDS*LED_VOLTAGE*AMPS_PER_LED*1000
+                #endif
+            #endif
+        #endif
+    #endif
+#endif
 
 #ifndef POWER_LIMIT_MW
 #define POWER_LIMIT_MW 500*5                // Define for your power supply, default is a low 2500mA for USB
