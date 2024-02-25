@@ -64,9 +64,17 @@
 
 #pragma once
 
+#ifdef USE_RGBW
+    #include "rgbw.h"
+#endif
+
+
 #include <stdexcept>
 #include "Adafruit_GFX.h"
+
+//#include "rgbw.h"
 #include "pixeltypes.h"
+
 #include "effects/matrix/Boid.h"
 #include "effects/matrix/Vector.h"
 #include "globals.h"
@@ -282,8 +290,13 @@ public:
 
     virtual CRGB getPixel(int16_t i) const
     {
-        if (isValidPixel(i))
-            return leds[i];
+        if (isValidPixel(i)) {
+           #ifdef USE_RGBW
+                return getRGBW(leds, i);
+            #else
+                return leds[x];
+            #endif
+        }
         else
             throw std::runtime_error(str_sprintf("Invalid index in getPixel: i=%d, NUM_LEDS=%d", i, NUM_LEDS).c_str());
     }
@@ -347,10 +360,15 @@ public:
 
     virtual void setPixel(int x, CRGB color)
     {
-        if (isValidPixel(x))
-            leds[x] = color;
-        else
+        if (isValidPixel(x)) {
+            #ifdef USE_RGBW
+                setRGBW(leds, x, color);
+            #else
+                leds[x] = color;
+            #endif
+        } else {
             debugE("Invalid setPixel request: x=%d, NUM_LEDS=%d", x, NUM_LEDS);
+        }
     }
 
     // DrawSafeCircle
@@ -438,8 +456,10 @@ public:
         // if needed...
 
         float p = fPos;
-        if (p >= 0 && isValidPixel(p))
-            leds[(int)p] = bMerge ? leds[(int)p] + c1 : c1;
+        if (p >= 0 && isValidPixel(p)) {
+            setPixel((int)p, bMerge ? getPixel((int)p) + c1 : c1);
+        }
+            
 
         p = fPos + (1.0f - frac1);
         count -= (1.0f - frac1);
@@ -448,16 +468,19 @@ public:
 
         while (count >= 1)
         {
-            if (p >= 0 && isValidPixel(p))
-                leds[(int)p] = bMerge ? leds[(int)p] + c : c;
+            if (p >= 0 && isValidPixel(p)) {
+                setPixel((int)p, bMerge ? getPixel((int)p) + c : c);
+            }
+                
             count--;
             p++;
         };
 
         // Final pixel, if in bounds
         if (count > 0)
-            if (p >= 0 && isValidPixel(p))
-                leds[(int)p] = bMerge ? leds[(int)p] + c2 : c2;
+            if (p >= 0 && isValidPixel(p)) {
+                setPixel((int)p, bMerge ? getPixel((int)p) + c2 : c2);
+            }
     }
 
     void blurRows(CRGB *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
@@ -1290,3 +1313,4 @@ public:
 
     virtual void PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiPixelsDrawn) {}
 };
+

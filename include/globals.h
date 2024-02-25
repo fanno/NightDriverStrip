@@ -1229,7 +1229,8 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 #endif
 
 #ifndef COLOR_ORDER
-#define COLOR_ORDER EOrder::GRB
+//#define COLOR_ORDER EOrder::GRB
+#define COLOR_ORDER EOrder::RGB
 #endif
 
 // Define fan ordering for drawing into the fan directionally
@@ -1646,9 +1647,12 @@ inline bool SetSocketBlockingEnabled(int fd, bool blocking)
 
 // Main includes
 
+// #include "rgbw.h"
+
 #include "gfxbase.h"                            // GFXBase drawing interface
 #include "socketserver.h"                       // Incoming WiFi data connections
 #include "ledstripgfx.h"                        // Essential drawing code for strips
+#include "ledstripgfxrgbw.h"                        // Essential drawing code for strips
 #include "ledstripeffect.h"                     // Defines base led effect classes
 #include "ntptimeclient.h"                      // setting the system clock from ntp
 #include "effectmanager.h"                      // For g_EffectManager

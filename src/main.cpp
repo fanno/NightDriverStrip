@@ -150,6 +150,7 @@
 //---------------------------------------------------------------------------
 
 
+//#include "rgbw.h"
 
 #define FASTLED_ALL_PINS_HARDWARE_SPI
 #define FASTLED_ESP32_SPI_BUS HSPI
@@ -465,10 +466,13 @@ void setup()
     #elif HEXAGON
         // Hexagon is for a PCB wtih 271 LEDss arranged in the face of a hexagon
         HexagonGFX::InitializeHardware(devices);
+    #elif USE_RGBW
+        // LEDStripGFX is used for simple strips or for matrices woven from strips
+        LEDStripGFXRGBW::InitializeHardware(devices);               
     #elif USE_WS281X
         // LEDStripGFX is used for simple strips or for matrices woven from strips
         LEDStripGFX::InitializeHardware(devices);
-    #endif
+     #endif
 
     // Initialize all the built-in effects
 

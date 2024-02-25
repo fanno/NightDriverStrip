@@ -482,7 +482,12 @@ void LoadEffectFactories()
     #else
 
         ADD_EFFECT(EFFECT_STRIP_RAINBOW_FILL, RainbowFillEffect, 6, 2);                    // Simple effect if not otherwise defined above
+        ADD_EFFECT(EFFECT_STRIP_STATUS, StatusEffect, CRGB::White);
 
+        ADD_EFFECT(EFFECT_STRIP_FIRE, FireEffect, "Medium Fire", NUM_LEDS, 1, 3, 100, 3, 4, true, true);
+
+        ADD_EFFECT(EFFECT_STRIP_COLOR_FILL, ColorFillEffect, CRGB::Red, 1);
+//        ADD_EFFECT(EFFECT_STRIP_COLOR_FILL, ColorFillEffectRGBW, CRGB::Yellow, 1);
     #endif
 
     // Set the effect set version to the default value of 1 if none was set yet
