@@ -275,7 +275,7 @@ public:
     virtual CRGB getPixel(int16_t x, int16_t y) const
     {
         if (isValidPixel(x, y))
-            return leds[XY(x, y)];
+            return getPixel(XY(x, y));
         else
             throw std::runtime_error(str_sprintf("Invalid index in getPixel: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS).c_str());
     }
@@ -291,13 +291,13 @@ public:
     virtual void addColor(int16_t i, CRGB c)
     {
         if (isValidPixel(i))
-            leds[i] += c;
+            setPixel(i, getPixel(i) + c);
     }
 
     virtual void drawPixel(int16_t x, int16_t y, CRGB color)
     {
         if (isValidPixel(x, y))
-            leds[XY(x, y)] = color;
+            setPixel(XY(x, y), color);
         else
             debugE("Invalid drawPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
@@ -305,7 +305,7 @@ public:
     void drawPixel(int16_t x, int16_t y, uint16_t color) override
     {
         if (isValidPixel(x, y))
-            leds[XY(x, y)] = from16Bit(color);
+            setPixel(XY(x, y), from16Bit(color));
         else
             debugE("Invalid drawPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
@@ -323,7 +323,7 @@ public:
     virtual void setPixel(int16_t x, int16_t y, uint16_t color)
     {
         if (isValidPixel(x, y))
-            leds[XY(x, y)] = from16Bit(color);
+            setPixel(XY(x, y), from16Bit(color));
         else
             debugE("Invalid setPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
@@ -331,7 +331,7 @@ public:
     void setPixel(int16_t x, int16_t y, CRGB color)
     {
         if (isValidPixel(x, y))
-            leds[XY(x, y)] = color;
+            setPixel(XY(x, y), color);
         else
             debugE("Invalid setPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
@@ -352,6 +352,14 @@ public:
         else
             debugE("Invalid setPixel request: x=%d, NUM_LEDS=%d", x, NUM_LEDS);
     }
+
+    virtual void nscale8(int16_t x, uint8_t scaledown)
+    {
+        CRGB c = getPixel(x);
+        c.nscale8(scaledown);
+        setPixel(x, c);
+    }
+
 
     // DrawSafeCircle
     //
@@ -439,7 +447,7 @@ public:
 
         float p = fPos;
         if (p >= 0 && isValidPixel(p))
-            leds[(int)p] = bMerge ? leds[(int)p] + c1 : c1;
+            setPixel((int)p, bMerge ? getPixel((int)p) + c1 : c1);
 
         p = fPos + (1.0f - frac1);
         count -= (1.0f - frac1);
@@ -449,7 +457,7 @@ public:
         while (count >= 1)
         {
             if (p >= 0 && isValidPixel(p))
-                leds[(int)p] = bMerge ? leds[(int)p] + c : c;
+                setPixel((int)p, bMerge ? getPixel((int)p) + c : c);
             count--;
             p++;
         };
@@ -457,7 +465,7 @@ public:
         // Final pixel, if in bounds
         if (count > 0)
             if (p >= 0 && isValidPixel(p))
-                leds[(int)p] = bMerge ? leds[(int)p] + c2 : c2;
+                setPixel((int)p, bMerge ? getPixel((int)p) + c2 : c2);
     }
 
     void blurRows(CRGB *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
@@ -470,14 +478,15 @@ public:
             CRGB carryover = CRGB::Black;
             for (uint16_t i = first; i < width; i++)
             {
-                CRGB cur = leds[XY(i, row)];
+                CRGB cur = getPixel(XY(i, row));
                 CRGB part = cur;
                 part.nscale8(seep);
                 cur.nscale8(keep);
                 cur += carryover;
                 if (i)
-                    leds[XY(i - 1, row)] += part;
-                leds[XY(i, row)] = cur;
+                    setPixel(XY(i - 1, row), getPixel(XY(i - 1, row)) + part);
+
+                setPixel(XY(i, row), cur);
                 carryover = part;
             }
         }
@@ -494,14 +503,15 @@ public:
             CRGB carryover = CRGB::Black;
             for (uint16_t i = first; i < height; ++i)
             {
-                CRGB cur = leds[XY(col, i)];
+                CRGB cur = getPixel(XY(col, i));
                 CRGB part = cur;
                 part.nscale8(seep);
                 cur.nscale8(keep);
                 cur += carryover;
                 if (i)
-                    leds[XY(col, i - 1)] += part;
-                leds[XY(col, i)] = cur;
+                    setPixel(XY(col, i - 1), getPixel(XY(col, i - 1)) + part);
+
+                setPixel(XY(col, i), cur);
                 carryover = part;
             }
         }
@@ -781,9 +791,9 @@ public:
         {
             for (int y = 0; y < ((_height + 1) / 2); y++)
             {
-                leds[XY(_width - 1 - x, y)] = leds[XY(x, y)];
-                leds[XY(_width - 1 - x, _height - 1 - y)] = leds[XY(x, y)];
-                leds[XY(x, _height - 1 - y)] = leds[XY(x, y)];
+                setPixel(XY(_width - 1 - x, y), getPixel(XY(x, y)));
+                setPixel(XY(_width - 1 - x, _height - 1 - y), getPixel(XY(x, y)));
+                setPixel(XY(x, _height - 1 - y), getPixel(XY(x, y)));
             }
         }
     }
@@ -795,9 +805,9 @@ public:
         {
             for (int y = 0; y < ((_height + 1) / 2); y++)
             {
-                leds[XY(_width - 1 - x, y)] = leds[XY(y, x)];
-                leds[XY(x, _height - 1 - y)] = leds[XY(y, x)];
-                leds[XY(_width - 1 - x, _height - 1 - y)] = leds[XY(x, y)];
+                setPixel(XY(_width - 1 - x, y), getPixel(XY(x, y)));
+                setPixel(XY(x, _height - 1 - y), getPixel(XY(x, y)));
+                setPixel(XY(_width - 1 - x, _height - 1 - y), getPixel(XY(x, y)));
             }
         }
     }
@@ -809,7 +819,7 @@ public:
         {
             for (int y = 0; y <= x; y++)
             {
-                leds[XY(x, y)] = leds[XY(y, x)];
+                setPixel(XY(x, y), getPixel(XY(y, x)));
             }
         }
     }
@@ -821,7 +831,7 @@ public:
         {
             for (int y = 0; y <= ((_height + 1) / 2) - x; y++)
             {
-                leds[XY(((_height + 1) / 2) - y, ((_width + 1) / 2) - x)] = leds[XY(x, y)];
+                setPixel(XY(((_height + 1) / 2) - y, ((_width + 1) / 2) - x), getPixel(XY(x, y)));
             }
         }
     }
@@ -833,7 +843,7 @@ public:
         {
             for (int y = 0; y <= x; y++)
             {
-                leds[XY(x, y)] = leds[XY(y, x)];
+                setPixel(XY(x, y), getPixel(XY(y, x)));
             }
         }
 
@@ -841,7 +851,7 @@ public:
         {
             for (int y = _height / 4; y >= 0; y--)
             {
-                leds[XY(x, y)] = leds[XY(y, x)];
+                setPixel(XY(x, y), getPixel(XY(y, x)));
             }
         }
     }
@@ -850,31 +860,31 @@ public:
     {
         for (int x = 1; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 7)] = leds[XY(x, 0)];
+            setPixel(XY(7 - x, 7), getPixel(XY(x, 0)));
         } // a
         for (int x = 2; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 6)] = leds[XY(x, 1)];
+            setPixel(XY(7 - x, 6), getPixel(XY(x, 1)));
         } // b
         for (int x = 3; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 5)] = leds[XY(x, 2)];
+            setPixel(XY(7 - x, 5), getPixel(XY(x, 2)));
         } // c
         for (int x = 4; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 4)] = leds[XY(x, 3)];
+            setPixel(XY(7 - x, 4), getPixel(XY(x, 3)));
         } // d
         for (int x = 5; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 3)] = leds[XY(x, 4)];
+            setPixel(XY(7 - x, 3), getPixel(XY(x, 4)));
         } // e
         for (int x = 6; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 2)] = leds[XY(x, 5)];
+            setPixel(XY(7 - x, 2), getPixel(XY(x, 5)));
         } // f
         for (int x = 7; x < ((_width + 1) / 2); x++)
         {
-            leds[XY(7 - x, 1)] = leds[XY(x, 6)];
+            setPixel(XY(7 - x, 1), getPixel(XY(x, 6)));
         } // g
     }
 
@@ -889,23 +899,24 @@ public:
         { // from the outside to the inside
             for (int i = x - d; i <= x + d; i++)
             {
-                leds[XY(i, y - d)] += leds[XY(i + 1, y - d)]; // lowest row to the right
-                leds[XY(i, y - d)].nscale8(dimm);
+                setPixel(XY(i, y - d), getPixel(XY(i, y - d)) + getPixel(XY(i + 1, y - d)));  // lowest row to the right
+
+                nscale8(XY(i, y - d), dimm);
             }
             for (int i = y - d; i <= y + d; i++)
             {
-                leds[XY(x + d, i)] += leds[XY(x + d, i + 1)]; // right colum up
-                leds[XY(x + d, i)].nscale8(dimm);
+                setPixel(XY(x + d, i), getPixel(XY(x + d, i)) + getPixel(XY(x + d, i + 1)));  // right colum up
+                nscale8(XY(x + d, i), dimm);
             }
             for (int i = x + d; i >= x - d; i--)
             {
-                leds[XY(i, y + d)] += leds[XY(i - 1, y + d)]; // upper row to the left
-                leds[XY(i, y + d)].nscale8(dimm);
+                setPixel(XY(i, y + d), getPixel(XY(i, y + d)) + getPixel(XY(i - 1, y + d)));  // upper row to the left
+                nscale8(XY(i, y + d), dimm);
             }
             for (int i = y + d; i >= y - d; i--)
             {
-                leds[XY(x - d, i)] += leds[XY(x - d, i - 1)]; // left colum down
-                leds[XY(x - d, i)].nscale8(dimm);
+                setPixel(XY(x - d, i), getPixel(XY(x - d, i)) + getPixel(XY(x - d, i - 1)));  // left colum down
+                nscale8(XY(x - d, i), dimm);
             }
         }
     }
@@ -930,24 +941,25 @@ public:
             while (a >= b)
             {
                 // move them out one pixel on the radius
-                leds[XY(a + centerX, b + centerY)]   = leds[XY(nextA + centerX, nextB + centerY)];
-                leds[XY(b + centerX, a + centerY)]   = leds[XY(nextB + centerX, nextA + centerY)];
-                leds[XY(-a + centerX, b + centerY)]  = leds[XY(-nextA + centerX, nextB + centerY)];
-                leds[XY(-b + centerX, a + centerY)]  = leds[XY(-nextB + centerX, nextA + centerY)];
-                leds[XY(-a + centerX, -b + centerY)] = leds[XY(-nextA + centerX, -nextB + centerY)];
-                leds[XY(-b + centerX, -a + centerY)] = leds[XY(-nextB + centerX, -nextA + centerY)];
-                leds[XY(a + centerX, -b + centerY)]  = leds[XY(nextA + centerX, -nextB + centerY)];
-                leds[XY(b + centerX, -a + centerY)]  = leds[XY(nextB + centerX, -nextA + centerY)];
+
+                setPixel(XY(a + centerX, b + centerY), getPixel(XY(nextA + centerX, nextB + centerY)));
+                setPixel(XY(b + centerX, a + centerY), getPixel(XY(nextB + centerX, nextA + centerY)));
+                setPixel(XY(-a + centerX, b + centerY), getPixel(XY(-nextA + centerX, nextB + centerY)));
+                setPixel(XY(-b + centerX, a + centerY), getPixel(XY(-nextB + centerX, nextA + centerY)));
+                setPixel(XY(-a + centerX, -b + centerY), getPixel(XY(-nextA + centerX, -nextB + centerY)));
+                setPixel(XY(-b + centerX, -a + centerY), getPixel(XY(-nextB + centerX, -nextA + centerY)));
+                setPixel(XY(a + centerX, -b + centerY), getPixel(XY(nextA + centerX, -nextB + centerY)));
+                setPixel(XY(b + centerX, -a + centerY), getPixel(XY(nextB + centerX, -nextA + centerY)));
 
                 // dim them
-                leds[XY(a + centerX, b + centerY)].nscale8(dimm);
-                leds[XY(b + centerX, a + centerY)].nscale8(dimm);
-                leds[XY(-a + centerX, b + centerY)].nscale8(dimm);
-                leds[XY(-b + centerX, a + centerY)].nscale8(dimm);
-                leds[XY(-a + centerX, -b + centerY)].nscale8(dimm);
-                leds[XY(-b + centerX, -a + centerY)].nscale8(dimm);
-                leds[XY(a + centerX, -b + centerY)].nscale8(dimm);
-                leds[XY(b + centerX, -a + centerY)].nscale8(dimm);
+                nscale8(XY(a + centerX, b + centerY), dimm);
+                nscale8(XY(b + centerX, a + centerY), dimm);
+                nscale8(XY(-a + centerX, b + centerY), dimm);
+                nscale8(XY(-b + centerX, a + centerY), dimm);
+                nscale8(XY(-a + centerX, -b + centerY), dimm);
+                nscale8(XY(-b + centerX, -a + centerY), dimm);
+                nscale8(XY(a + centerX, -b + centerY), dimm);
+                nscale8(XY(b + centerX, -a + centerY), dimm);
 
                 b++;
                 if (radiusError < 0)
@@ -979,12 +991,12 @@ public:
         {
             for (int y = fromY; y < toY; y++)
             {
-                leds[XY(x, y)] += leds[XY(x - 1, y)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x, y), getPixel(XY(x, y)) + getPixel(XY(x - 1, y)));
+                nscale8(XY(x, y), scale);
             }
         }
         for (int y = fromY; y < toY; y++)
-            leds[XY(0, y)].nscale8(scale);
+            nscale8(XY(0, y), scale);
     }
 
     // give it a linear tail to the left
@@ -994,12 +1006,12 @@ public:
         {
             for (int y = fromY; y < toY; y++)
             {
-                leds[XY(x, y)] += leds[XY(x + 1, y)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x, y), getPixel(XY(x, y)) + getPixel(XY(x + 1, y)));
+                nscale8(XY(x, y), scale);
             }
         }
         for (int y = fromY; y < toY; y++)
-            leds[XY(0, y)].nscale8(scale);
+            nscale8(XY(0, y), scale);
     }
 
     // give it a linear tail downwards
@@ -1009,12 +1021,12 @@ public:
         {
             for (int y = 1; y < _height; y++)
             {
-                leds[XY(x, y)] += leds[XY(x, y - 1)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x, y), getPixel(XY(x, y)) + getPixel(XY(x, y - 1)));
+                nscale8(XY(x, y), scale);
             }
         }
         for (int x = 0; x < _width; x++)
-            leds[XY(x, 0)].nscale8(scale);
+            nscale8(XY(x, 0), scale);
     }
 
     // give it a linear tail upwards
@@ -1024,12 +1036,12 @@ public:
         {
             for (int y = _height - 2; y >= 0; y--)
             {
-                leds[XY(x, y)] += leds[XY(x, y + 1)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x, y), getPixel(XY(x, y)) + getPixel(XY(x, y + 1)));
+                nscale8(XY(x, y), scale);
             }
         }
         for (int x = 0; x < _width; x++)
-            leds[XY(x, _height - 1)].nscale8(scale);
+            nscale8(XY(x, _height - 1), scale);
     }
 
     // give it a linear tail up and to the left
@@ -1039,14 +1051,15 @@ public:
         {
             for (int y = _height - 2; y >= 0; y--)
             {
-                leds[XY(x, y)] += leds[XY(x + 1, y + 1)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x, y), getPixel(XY(x, y)) + getPixel(XY(x + 1, y + 1)));
+                nscale8(XY(x, y), scale);
             }
         }
         for (int x = 0; x < _width; x++)
-            leds[XY(x, _height - 1)].nscale8(scale);
+            nscale8(XY(x, _height - 1), scale);
+
         for (int y = 0; y < _height; y++)
-            leds[XY(_width - 1, y)].nscale8(scale);
+            nscale8(XY(_width - 1, y), scale);
     }
 
     // give it a linear tail up and to the right
@@ -1057,17 +1070,17 @@ public:
         {
             for (int y = _height - 2; y >= 0; y--)
             {
-                leds[XY(x + 1, y)] += leds[XY(x, y + 1)];
-                leds[XY(x, y)].nscale8(scale);
+                setPixel(XY(x + 1, y), getPixel(XY(x + 1, y)) + getPixel(XY(x, y + 1)));
+                nscale8(XY(x, y), scale);
             }
         }
         // fade the bottom row
         for (int x = 0; x < _width; x++)
-            leds[XY(x, _height - 1)].nscale8(scale);
+            nscale8(XY(x, _height - 1), scale);
 
         // fade the right column
         for (int y = 0; y < _height; y++)
-            leds[XY(_width - 1, y)].nscale8(scale);
+            nscale8(XY(_width - 1, y), scale);
     }
 
     // just move everything one line down - BUGBUG (DAVEPL) Redundant with MoveX?
@@ -1078,7 +1091,7 @@ public:
         {
             for (int x = 0; x < _width; x++)
             {
-                leds[XY(x, y)] = leds[XY(x, y - 1)];
+                setPixel(XY(x, y), getPixel(XY(x, y - 1)));
             }
         }
     }
@@ -1091,7 +1104,7 @@ public:
         {
             for (int x = 0; x < _width; x++)
             {
-                leds[XY(x, y)] = leds[XY(x, y - 1)];
+                setPixel(XY(x, y), getPixel(XY(x, y - 1)));
             }
         }
     }
@@ -1105,7 +1118,7 @@ public:
         {
             for (int x = x0; x < x1 + 1; x++)
             {
-                leds[XY(x + x2 - x0, y + y2 - y0)] = leds[XY(x, y)];
+                setPixel(XY(x + x2 - x0, y + y2 - y0), getPixel(XY(x, y)));
             }
         }
     }
@@ -1120,7 +1133,7 @@ public:
         for (;;)
         {
             if (isValidPixel(x0, y0))
-                leds[XY(x0, y0)] = bMerge ? leds[XY(x0, y0)] + color : color;
+                setPixel(XY(x0, y0), bMerge ? getPixel(XY(x0, y0)) + color : color);
 
             if (x0 == x1 && y0 == y1)
                 break;
@@ -1162,7 +1175,7 @@ public:
         for (int i = 0; i < NUM_LEDS; i++)
         {
             // if ((leds[i].r != 255) || (leds[i].g != 255) || (leds[i].b != 255))           // Don't dim pure white
-            leds[i].nscale8(value);
+            nscale8(i, value);
         }
     }
 
@@ -1233,10 +1246,10 @@ public:
         for (int y = startY; y <= endY; y++)
         {
             for (int x = _width / 2; x > 0; x--)
-                leds[XY(x, y)] = leds[XY(x - 1, y)];
+                setPixel(XY(x, y), getPixel(XY(x - 1, y)));
 
             for (int x = _width / 2; x < _width; x++)
-                leds[XY(x, y)] = leds[XY(x + 1, y)];
+                setPixel(XY(x, y), getPixel(XY(x + 1, y)));
         }
     }
 
@@ -1246,8 +1259,8 @@ public:
         {
             for (int x = 0; x < _width / 2 - 1; x++)
             {
-                leds[XY(x, y)] = leds[XY(x + 1, y)];
-                leds[XY(_width - x - 1, y)] = leds[XY(_width - x - 2, y)];
+                setPixel(XY(x, y), getPixel(XY(x + 1, y)));
+                setPixel(XY(_width - x - 1, y), getPixel(XY(_width - x - 2, y)));
             }
         }
     }
@@ -1260,10 +1273,10 @@ public:
         {
             // First part
             for (int x = 0; x < _width - delta; x++)
-                leds[XY(x, y)] = leds[XY(x + delta, y)];
+                setPixel(XY(x, y), getPixel(XY(x + delta, y)));
             // Wrap around to second part
             for (int x = _width - delta; x < _width; x++)
-                leds[XY(x, y)] = leds[XY(x + delta - _width, y)];
+                setPixel(XY(x, y), getPixel(XY(x + delta - _width, y)));
         }
     }
 
@@ -1274,14 +1287,14 @@ public:
         CRGB tmp = 0;
         for (int x = 0; x < _width; x++)
         {
-            tmp = leds[XY(x, 0)];
+            tmp = getPixel(XY(x, 0));
             for (int m = 0; m < delta; m++) // moves
             {
                 // Do this delta time for each row... computationally expensive potentially.
                 for (int y = 0; y < _height - 1; y++)
-                    leds[XY(x, y)] = leds[XY(x, y + 1)];
+                    setPixel(XY(x, y), getPixel(XY(x, y + 1)));
 
-                leds[XY(x, _height - 1)] = tmp;
+                setPixel(XY(x, _height - 1), tmp);
             }
         } // end column loop
     }     /// MoveY
