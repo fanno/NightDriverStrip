@@ -649,6 +649,11 @@ public:
         else
             _vEffects[_iCurrentEffect]->Draw(); // Draw the currently active effect
 
+        if (_tempEffect)
+            _tempEffect->UpdateFastLEDS();
+        else
+            _vEffects[_iCurrentEffect]->UpdateFastLEDS(); // Draw the currently active effect            
+
         // If we do indeed have multiple effects (BUGBUG what if only a single enabled?) then we
         // fade in and out at the appropriate time based on the time remaining/used by the effect
 

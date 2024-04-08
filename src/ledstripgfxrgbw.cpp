@@ -55,34 +55,14 @@ void LEDStripGFXRGBW::PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiP
 
     auto& effectManager = g_ptrSystem->EffectManager();
 
-// FastLED with RGBW
-    CRGBW leds[NUM_LEDS];
-//    CRGB *ledsRGB;
-
-//devices[0]->GetLEDCount()
-
     for (int i = 0; i < NUM_CHANNELS; i++) 
     {
-        for (int ix = 0; ix < NUM_LEDS; ix++) 
-        {
-            leds[ix].b = 255;
-            leds[ix].g = 0;
-            leds[ix].r = 0;
-            leds[ix].w = 0;
-        }
-//        CRGB *ledsRGB = (CRGB *) &leds[0];
-
-effectManager.g(i)->leds = (CRGB *) &leds[0];
-
-//        FastLED[i].setLeds(ledsRGB, pixelsDrawn);
-
-      FastLED[i].setLeds(effectManager.g(i)->leds, pixelsDrawn);
-
+      FastLED[i].setLeds(effectManager.g(i)->fastleds, pixelsDrawn);
       fadeLightBy(FastLED[i].leds(), FastLED[i].size(), 255 - g_ptrSystem->DeviceConfig().GetBrightness());
     }
     FastLED.show(g_Values.Fader); //Shows the pixels
 
     g_Values.FPS = FastLED.getFPS();
     g_Values.Brite = 100.0 * calculate_max_brightness_for_power_mW(g_ptrSystem->DeviceConfig().GetBrightness(), POWER_LIMIT_MW) / 255;
-    g_Values.Watts = calculate_unscaled_power_mW(effectManager.g()->leds, pixelsDrawn) / 1000; // 1000 for mw->W
+    g_Values.Watts = calculate_unscaled_power_mW(effectManager.g()->fastleds, pixelsDrawn) / 1000; // 1000 for mw->W
 }

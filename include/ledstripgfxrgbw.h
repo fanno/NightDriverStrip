@@ -33,7 +33,42 @@
 #pragma once
 #include "gfxbase.h"
 
-#include "rgbw.h"
+inline uint16_t getRGBWsize(uint16_t nleds) {
+	uint16_t nbytes = nleds * 4;
+	if(nbytes % 3 > 0) return nbytes / 3 + 1;
+	else return nbytes / 3;
+}
+
+inline void setRGBW(CRGB* led, int index, const NDRGBWW& color) {
+
+	float start = index * (sizeof(NDRGBWW) / sizeof(CRGB) );
+
+	int _pos = start;
+
+	switch (index % 4)
+	{
+		case 1:
+			led[_pos].g = color.r;
+			led[_pos].b = color.g;
+			led[_pos+1].r = color.b;
+			led[_pos+1].g = color.w1;
+			break;
+		case 2:
+			led[_pos].b = color.r;
+			led[_pos+1].r = color.g;
+			led[_pos+1].g = color.b;
+			led[_pos+1].b = color.w1;
+			break;
+		default:
+			led[_pos].r = color.r;
+			led[_pos].g = color.g;
+			led[_pos].b = color.b;
+			led[_pos+1].r = color.w1;
+			break;
+	}
+}
+
+//#include "rgbw.h"
 
 // LEDStripGFX
 //
@@ -45,27 +80,22 @@ protected:
     static void AddLEDsToFastLED(std::vector<std::shared_ptr<GFXBase>>& devices)
     {
         // Macro to add LEDs to a channel
-/*
         #define ADD_CHANNEL_RGBW(channel) \
             debugI("Adding %zu LEDs to pin %d from channel %d on FastLED.", devices[channel]->GetLEDCount(), LED_PIN ## channel, channel); \
-            FastLED.addLeds<SK6812, LED_PIN ## channel, COLOR_ORDER>(devices[channel]->leds, devices[channel]->GetLEDCount()); \
+            FastLED.addLeds<SK6812, LED_PIN ## channel, COLOR_ORDER>(devices[channel]->fastleds, getRGBWsize(devices[channel]->GetLEDCount())); \
             pinMode(LED_PIN ## channel, OUTPUT)
-*/
+
         debugI("Adding LEDs to FastLED...");
 
         // The following "unrolled conditional compile loop" to set up the channels is needed because the LED pin
         //   is a template parameter to FastLED.addLeds()
         #if NUM_CHANNELS >= 1
-//          ADD_CHANNEL_RGBW(0);
-debugI("Adding LEDs to FastLED...%d", getRGBWsize(devices[0]->GetLEDCount()));
-
-            FastLED.addLeds<SK6812, LED_PIN0, COLOR_ORDER>(devices[0]->leds, getRGBWsize(devices[0]->GetLEDCount()));
-            
-//          FastLED.addLeds<WS2812B, 38, EOrder::GRB>(devices[0]->leds, devices[0]->GetLEDCount());           
-
-//          FastLED.addLeds<WS2812B, 38, EOrder::GRB>(devices[0]->leds, devices[0]->GetLEDCount());
-
-            pinMode(LED_PIN0, OUTPUT);
+          ADD_CHANNEL_RGBW(0);
+/*
+          debugI("Adding LEDs to FastLED...%d", getRGBWsize(devices[0]->GetLEDCount()));
+          FastLED.addLeds<SK6812, LED_PIN0, COLOR_ORDER>(devices[0]->fastleds, getRGBWsize(devices[0]->GetLEDCount()));
+          pinMode(LED_PIN0, OUTPUT);
+*/            
         #endif
 
         #if NUM_CHANNELS >= 2
@@ -106,9 +136,13 @@ public:
     LEDStripGFXRGBW(size_t w, size_t h) : GFXBase(w, h)
     {
         debugV("Creating Device of size %zu x %zu", w, h);
-        leds = static_cast<CRGB *>(calloc(w * h, sizeof(CRGB)));
+        leds = static_cast<NDRGBWW *>(calloc(w * h, sizeof(NDRGBWW)));
         if(!leds)
             throw std::runtime_error("Unable to allocate LEDs in LEDStripGFX");
+
+        fastleds = static_cast<CRGB *>(calloc(getRGBWsize(w * h), sizeof(CRGB)));
+        if(!fastleds)
+            throw std::runtime_error("Unable to allocate RGBWleds in LEDStripGFX");     
     }
 
     ~LEDStripGFXRGBW() override
@@ -140,6 +174,9 @@ public:
 
     void PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiPixelsDrawn) override;
 };
+
+
+
 
 #if HEXAGON
 

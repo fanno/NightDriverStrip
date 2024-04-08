@@ -64,15 +64,10 @@
 
 #pragma once
 
-#ifdef USE_RGBW
-    #include "rgbw.h"
-#endif
-
-
 #include <stdexcept>
 #include "Adafruit_GFX.h"
 
-//#include "rgbw.h"
+#include "ndrgbww.h"
 #include "pixeltypes.h"
 
 #include "effects/matrix/Boid.h"
@@ -141,7 +136,9 @@ protected:
 public:
     // Many of the Aurora effects need direct access to these from external classes
 
-    CRGB *leds = nullptr;
+    NDRGBWW *leds = nullptr;
+    CRGB *fastleds = nullptr;
+
     std::unique_ptr<Boid[]> _boids;
 
     // Definition moved to GFXBase.cpp because it uses the FillGetNoise() function template
@@ -196,13 +193,13 @@ public:
         return result;
     }
 
-    static CRGB from16Bit(uint16_t color) // Convert 16bit 5:6:5 to 24bit color using lookup table for gamma
+    static NDRGBWW from16Bit(uint16_t color) // Convert 16bit 5:6:5 to 24bit color using lookup table for gamma
     {
         uint8_t r = gamma5[color >> 11];
         uint8_t g = gamma6[(color >> 5) & 0x3F];
         uint8_t b = gamma5[color & 0x1F];
 
-        return CRGB(r, g, b);
+        return NDRGBWW(r, g, b);
     }
 
     static uint16_t to16bit(uint8_t r, uint8_t g, uint8_t b) // Convert RGB -> 16bit 5:6:5
@@ -223,9 +220,9 @@ public:
     virtual void Clear(CRGB color = CRGB::Black)
     {
         if (color == CRGB::Black)
-            memset(leds, 0, sizeof(CRGB) * _width * _height);
+            memset(fastleds, 0, sizeof(CRGB) * _width * _height);
         else
-            fill_solid(leds, _width * _height, color);
+            fill_solid(fastleds, _width * _height, color);
     }
     virtual bool isValidPixel(uint x, uint y) const
     {
@@ -280,7 +277,7 @@ public:
         #define XY(x, y) xy(x, y)
     #endif
 
-    virtual CRGB getPixel(int16_t x, int16_t y) const
+    virtual NDRGBWW getPixel(int16_t x, int16_t y) const
     {
         if (isValidPixel(x, y))
             return leds[XY(x, y)];
@@ -288,26 +285,22 @@ public:
             throw std::runtime_error(str_sprintf("Invalid index in getPixel: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS).c_str());
     }
 
-    virtual CRGB getPixel(int16_t i) const
+    virtual NDRGBWW getPixel(int16_t i) const
     {
         if (isValidPixel(i)) {
-           #ifdef USE_RGBW
-                return getRGBW(leds, i);
-            #else
-                return leds[x];
-            #endif
+            return leds[i];
         }
         else
             throw std::runtime_error(str_sprintf("Invalid index in getPixel: i=%d, NUM_LEDS=%d", i, NUM_LEDS).c_str());
     }
 
-    virtual void addColor(int16_t i, CRGB c)
+    virtual void addColor(int16_t i, NDRGBWW c)
     {
         if (isValidPixel(i))
             leds[i] += c;
     }
 
-    virtual void drawPixel(int16_t x, int16_t y, CRGB color)
+    virtual void drawPixel(int16_t x, int16_t y, NDRGBWW color)
     {
         if (isValidPixel(x, y))
             leds[XY(x, y)] = color;
@@ -341,7 +334,7 @@ public:
             debugE("Invalid setPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
 
-    void setPixel(int16_t x, int16_t y, CRGB color)
+    void setPixel(int16_t x, int16_t y, NDRGBWW color)
     {
         if (isValidPixel(x, y))
             leds[XY(x, y)] = color;
@@ -349,25 +342,114 @@ public:
             debugE("Invalid setPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
     }
 
+    void setPixel(int16_t x, int16_t y, CRGB color)
+    {
+        if (isValidPixel(x, y))
+            leds[XY(x, y)] = color;
+        else
+            debugE("Invalid setPixel request: x=%d, y=%d, NUM_LEDS=%d", x, y, NUM_LEDS);
+    }    
+
     virtual void setPixel(int16_t x, int r, int g, int b)
     {
         if (isValidPixel(x))
-            setPixel(x, CRGB(r, g, b));
+            setPixel(x, NDRGBWW(r, g, b));
         else
             debugE("Invalid setPixel request: x=%d, NUM_LEDS=%d", x, NUM_LEDS);
 
     }
 
+    virtual void setPixel(int x, NDRGBWW color)
+    {
+        if (isValidPixel(x)) {
+            leds[x] = color;
+        } else {
+            debugE("Invalid setPixel request: x=%d, NUM_LEDS=%d", x, NUM_LEDS);
+        }
+    }
+
     virtual void setPixel(int x, CRGB color)
     {
         if (isValidPixel(x)) {
-            #ifdef USE_RGBW
-                setRGBW(leds, x, color);
-            #else
-                leds[x] = color;
-            #endif
+            leds[x] = color;
         } else {
             debugE("Invalid setPixel request: x=%d, NUM_LEDS=%d", x, NUM_LEDS);
+        }
+    }    
+
+    virtual void UpdateFastLEDS()
+    {
+        unsigned int DataSize = sizeof(CRGB) + 1;
+
+        for (int x = 0; x < _width; x++) {
+            for (int y = 0; y < _height; y++) {
+                if (DataSize == sizeof(CRGB)) {
+                    fastleds[XY(x, y)] = leds[XY(x, y)].toRGB();
+                } else {
+                    hackToMakerRGBW (fastleds, XY(x, y), DataSize, leds[XY(x, y)]);
+                }
+            }
+        }
+    }
+
+    virtual void hackToMakerRGBW (CRGB* led, int index, unsigned int dataSize, const NDRGBWW& color) {
+        float start = index * (dataSize / sizeof(CRGB) );
+        int _pos = start;
+
+        if (dataSize == sizeof(CRGB) + 1) {
+            switch (index % 4)
+            {
+                case 1:
+                    led[_pos].g = color.r;
+                    led[_pos].b = color.g;
+                    led[_pos+1].r = color.b;
+                    led[_pos+1].g = color.w1;
+                    break;
+                case 2:
+                    led[_pos].b = color.r;
+                    led[_pos+1].r = color.g;
+                    led[_pos+1].g = color.b;
+                    led[_pos+1].b = color.w1;
+                    break;
+                default:
+                    led[_pos].r = color.r;
+                    led[_pos].g = color.g;
+                    led[_pos].b = color.b;
+                    led[_pos+1].r = color.w1;
+                    break;
+            }
+        } else if (dataSize == sizeof(CRGB) + 2) {
+            switch (index % 5)
+            {
+                case 1:
+                    led[_pos].g = color.r;
+                    led[_pos].b = color.g;
+                    led[_pos+1].r = color.b;
+                    led[_pos+1].g = color.w1;
+                    led[_pos+1].b = color.w2;
+                    break;
+                case 2:
+                    led[_pos].b = color.r;
+                    led[_pos+1].r = color.g;
+                    led[_pos+1].g = color.b;
+                    led[_pos+1].b = color.w1;
+                    led[_pos+2].r = color.w2;
+                    break;
+                case 3:
+                    led[_pos+1].r = color.r;
+                    led[_pos+1].g = color.g;
+                    led[_pos+1].b = color.b;
+                    led[_pos+2].r = color.w1;
+                    led[_pos+2].g = color.w2;
+                    break;                    
+                default:
+                    led[_pos].r = color.r;
+                    led[_pos].g = color.g;
+                    led[_pos].b = color.b;
+                    led[_pos+1].r = color.w1;
+                    led[_pos+1].g = color.w2;
+                    break;
+            }
         }
     }
 
@@ -378,7 +460,7 @@ public:
     // are partially off the matrix.  This is important for the pulsar effect.   Note that
     // the Adafruit versions do no bounds checking
 
-    virtual void DrawSafeCircle(int centerX, int centerY, int radius, CRGB color)
+    virtual void DrawSafeCircle(int centerX, int centerY, int radius, NDRGBWW color)
     {
         int x = radius;
         int y = 0;
@@ -409,92 +491,82 @@ public:
         }
     }
 
-    // setPixelsF - Floating point variant
-    //
-    // This variant of setPixels includes a few important features:  it can merge its color
-    // into the existing pixels or replace it entirely.  It can also draw fractionally, so
-    // you can draw from 1.5 to 4.25, including when merging.
-    //
-    //   Example:
-    //
-    //   Starting at 3.25, draw for 1.5:
-    //   We start at pixel 3.
-    //   We fill pixel with .75 worth of color
-    //   We advance to next pixel
-    //
-    //   We fill one pixel and advance to next pixel
-    //   We are now at pixel 5, frac2 = .75
-    //   We fill pixel with .75 worth of color
+    template<typename T>
+    void setPixelsF(float fPos, float count, T c, bool bMerge = false)
+    {   
+        if (std::is_same<decltype(c), CRGB>::value || std::is_same<decltype(c), NDRGBWW>::value) {
+            NDRGBWW rgbww;
+            rgbww = c;
 
-    void setPixelsF(float fPos, float count, CRGB c, bool bMerge = false)
-    {
-        float frac1 = fPos - floor(fPos);                 // eg:   3.25 becomes 0.25
-        float frac2 = fPos + count - floor(fPos + count); // eg:   3.25 + 1.5 yields 4.75 which becomes 0.75
+            float frac1 = fPos - floor(fPos);                 // eg:   3.25 becomes 0.25
+            float frac2 = fPos + count - floor(fPos + count); // eg:   3.25 + 1.5 yields 4.75 which becomes 0.75
 
-        /* Example:
+            /* Example:
 
-          Starting at 3.25, draw for 1.5:
-          We start at pixel 3.
-          We fill pixel with .75 worth of color
-          We advance to next pixel
+            Starting at 3.25, draw for 1.5:
+            We start at pixel 3.
+            We fill pixel with .75 worth of color
+            We advance to next pixel
 
-          We fill one pixel and advance to next pixel
+            We fill one pixel and advance to next pixel
 
-          We are now at pixel 5, frac2 = .75
-          We fill pixel with .75 worth of color
-        */
+            We are now at pixel 5, frac2 = .75
+            We fill pixel with .75 worth of color
+            */
 
-        uint8_t fade1 = (uint8_t) ((std::max(frac1, 1.0f - count)) * 255); // Fraction is how far past pixel boundary we are (up to our total size) so larger fraction is more dimming
-        uint8_t fade2 = (uint8_t) ((1.0f - frac2) * 255);                   // Fraction is how far we are poking into this pixel, so larger fraction is less dimming
-        CRGB c1 = c;
-        CRGB c2 = c;
-        c1 = c1.fadeToBlackBy(fade1);
-        c2 = c2.fadeToBlackBy(fade2);
+            uint8_t fade1 = (uint8_t) ((std::max(frac1, 1.0f - count)) * 255); // Fraction is how far past pixel boundary we are (up to our total size) so larger fraction is more dimming
+            uint8_t fade2 = (uint8_t) ((1.0f - frac2) * 255);                   // Fraction is how far we are poking into this pixel, so larger fraction is less dimming
+            NDRGBWW c1 = rgbww;
+            NDRGBWW c2 = rgbww;
+            c1 = c1.fadeToBlackBy(fade1);
+            c2 = c2.fadeToBlackBy(fade2);
 
-        // These assignments use the + operator of CRGB to merge the colors when requested, and its pretty
-        // naive, just saturating each color element at 255, so the operator could be improved or replaced
-        // if needed...
+            // These assignments use the + operator of CRGB to merge the colors when requested, and its pretty
+            // naive, just saturating each color element at 255, so the operator could be improved or replaced
+            // if needed...
 
-        float p = fPos;
-        if (p >= 0 && isValidPixel(p)) {
-            setPixel((int)p, bMerge ? getPixel((int)p) + c1 : c1);
-        }
-            
-
-        p = fPos + (1.0f - frac1);
-        count -= (1.0f - frac1);
-
-        // Middle (body) pixels
-
-        while (count >= 1)
-        {
+            float p = fPos;
             if (p >= 0 && isValidPixel(p)) {
-                setPixel((int)p, bMerge ? getPixel((int)p) + c : c);
+                setPixel((int)p, bMerge ? getPixel((int)p) + c1 : c1);
             }
                 
-            count--;
-            p++;
-        };
 
-        // Final pixel, if in bounds
-        if (count > 0)
-            if (p >= 0 && isValidPixel(p)) {
-                setPixel((int)p, bMerge ? getPixel((int)p) + c2 : c2);
-            }
+            p = fPos + (1.0f - frac1);
+            count -= (1.0f - frac1);
+
+            // Middle (body) pixels
+
+            while (count >= 1)
+            {
+                if (p >= 0 && isValidPixel(p)) {
+                    setPixel((int)p, bMerge ? getPixel((int)p) + rgbww : rgbww);
+                }
+                    
+                count--;
+                p++;
+            };
+
+            // Final pixel, if in bounds
+            if (count > 0)
+                if (p >= 0 && isValidPixel(p)) {
+                    setPixel((int)p, bMerge ? getPixel((int)p) + c2 : c2);
+                }
+
+        }
     }
 
-    void blurRows(CRGB *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
+    void blurRows(NDRGBWW *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
     {
         // blur rows same as columns, for irregular matrix
         uint8_t keep = 255 - blur_amount;
         uint8_t seep = blur_amount >> 1;
         for (uint16_t row = 0; row < height; row++)
         {
-            CRGB carryover = CRGB::Black;
+            NDRGBWW carryover = CRGB::Black;
             for (uint16_t i = first; i < width; i++)
             {
-                CRGB cur = leds[XY(i, row)];
-                CRGB part = cur;
+                NDRGBWW cur = leds[XY(i, row)];
+                NDRGBWW part = cur;
                 part.nscale8(seep);
                 cur.nscale8(keep);
                 cur += carryover;
@@ -507,18 +579,18 @@ public:
     }
 
     // blurColumns: perform a blur1d on each column of a rectangular matrix
-    void blurColumns(CRGB *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
+    void blurColumns(NDRGBWW *leds, uint16_t width, uint16_t height, uint16_t first, fract8 blur_amount)
     {
         // blur columns
         uint8_t keep = 255 - blur_amount;
         uint8_t seep = blur_amount >> 1;
         for (uint16_t col = 0; col < width; ++col)
         {
-            CRGB carryover = CRGB::Black;
+            NDRGBWW carryover = CRGB::Black;
             for (uint16_t i = first; i < height; ++i)
             {
-                CRGB cur = leds[XY(col, i)];
-                CRGB part = cur;
+                NDRGBWW cur = leds[XY(col, i)];
+                NDRGBWW part = cur;
                 part.nscale8(seep);
                 cur.nscale8(keep);
                 cur += carryover;
@@ -530,7 +602,7 @@ public:
         }
     }
 
-    void blur2d(CRGB *leds, uint16_t width, uint16_t firstColumn, uint16_t height, uint16_t firstRow, fract8 blur_amount)
+    void blur2d(NDRGBWW *leds, uint16_t width, uint16_t firstColumn, uint16_t height, uint16_t firstRow, fract8 blur_amount)
     {
         blurRows(leds, width, height, firstColumn, blur_amount);
         blurColumns(leds, width, height, firstRow, blur_amount);
@@ -617,7 +689,7 @@ public:
         loadPalette(_randomPaletteIndex);
     }
 
-    void fillRectangle(int x0, int y0, int x1, int y1, CRGB color)
+    void fillRectangle(int x0, int y0, int x1, int y1, NDRGBWW color)
     {
         for (int x = x0; x < x1; x++)
             for (int y = y0; y < y1; y++)
@@ -1133,7 +1205,7 @@ public:
         }
     }
 
-    void BresenhamLine(int x0, int y0, int x1, int y1, CRGB color, bool bMerge = false)
+    void BresenhamLine(int x0, int y0, int x1, int y1, NDRGBWW color, bool bMerge = false)
     {
         int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
         int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
@@ -1175,7 +1247,7 @@ public:
         BresenhamLine(x0, y0, x1, y1, ColorFromCurrentPalette(colorIndex), bMerge);
     }
 
-    void drawLine(int x0, int y0, int x1, int y1, CRGB color)
+    void drawLine(int x0, int y0, int x1, int y1, NDRGBWW color)
     {
         BresenhamLine(x0, y0, x1, y1, color);
     }
@@ -1189,9 +1261,17 @@ public:
         }
     }
 
-    CRGB ColorFromCurrentPalette(uint8_t index = 0, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND) const
+    NDRGBWW ColorFromCurrentPalette(uint8_t index = 0, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND) const
     {
-        return ColorFromPalette(_currentPalette, index, brightness, _currentBlendType);
+        NDRGBWW color;
+
+        CRGB col = ColorFromPalette(_currentPalette, index, brightness, _currentBlendType);
+
+        color.r = col.r;
+        color.b = col.b;
+        color.g = col.g;
+
+        return color;
     }
 
     CRGB HsvToRgb(uint8_t h, uint8_t s, uint8_t v) const
@@ -1294,7 +1374,7 @@ public:
 
     void MoveY(uint8_t delta)
     {
-        CRGB tmp = 0;
+        NDRGBWW tmp = 0;
         for (int x = 0; x < _width; x++)
         {
             tmp = leds[XY(x, 0)];

@@ -468,7 +468,7 @@ void setup()
         HexagonGFX::InitializeHardware(devices);
     #elif USE_RGBW
         // LEDStripGFX is used for simple strips or for matrices woven from strips
-        LEDStripGFXRGBW::InitializeHardware(devices);               
+        LEDStripGFXRGBW::InitializeHardware(devices);
     #elif USE_WS281X
         // LEDStripGFX is used for simple strips or for matrices woven from strips
         LEDStripGFX::InitializeHardware(devices);

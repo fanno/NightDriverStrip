@@ -98,7 +98,7 @@ public:
         {
             if ((!meteorRandomDecay) || (random_range(0, 10)>2))            // BUGBUG Was 5 for everything before atomlight
             {
-                CRGB c = pGFX->getPixel(j);
+                CRGB c = pGFX->getPixel(j).toRGB();
                 c.fadeToBlackBy(meteorTrailDecay);
                 pGFX->setPixel(j, c);
             }
@@ -136,7 +136,7 @@ public:
                         hue[i] -= 255.0f;
                     hsv.hue = hue[i];
                     hsv2rgb_rainbow(hsv, rgb);
-                    CRGB c = pGFX->getPixel(x);
+                    CRGB c = pGFX->getPixel(x).toRGB();
                     nblend(c, rgb , 75);
                     pGFX->setPixel(x, c);
                 }

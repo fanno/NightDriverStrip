@@ -395,6 +395,17 @@ class LEDStripEffect : public IJSONSerializable
         }
     }
 
+    void UpdateFastLEDS()
+    {
+        if (!_GFX[0])
+            throw std::runtime_error("Graphics not set up properly");
+
+        for (auto& device : _GFX)
+        {
+            device->UpdateFastLEDS();
+        }
+    }    
+
     // ClearFrameOnAllChannels
     //
     // Clears ALL the channels
@@ -428,6 +439,8 @@ class LEDStripEffect : public IJSONSerializable
             return;
         }
 
+        NDRGBWW black = CRGB::Black;
+
         CHSV hsv;
         hsv.hue = initialhue;
         hsv.val = 255;
@@ -439,7 +452,7 @@ class LEDStripEffect : public IJSONSerializable
             setPixelOnAllChannels(iStart + i, rgb);
             hsv.hue += deltahue;
             for (int q = 1; q < everyNth; q++)
-                _GFX[q]->setPixel(iStart + i + q, CRGB::Black);
+                _GFX[q]->setPixel(iStart + i + q, black);
         }
     }
 
@@ -451,7 +464,7 @@ class LEDStripEffect : public IJSONSerializable
     {
         for (auto& device : _GFX)
         {
-            CRGB crgb = device->getPixel(pixel);
+            CRGB crgb = device->getPixel(pixel).toRGB();
             crgb.fadeToBlackBy(fadeValue);
             device->setPixel(pixel, crgb);
         }
@@ -487,8 +500,12 @@ class LEDStripEffect : public IJSONSerializable
 
     void setPixelsOnAllChannels(float fPos, float count, CRGB c, bool bMerge = false) const
     {
+        NDRGBWW c2;
+        
+        c2 = c;
+
         for (auto& device : _GFX)
-            device->setPixelsF(fPos, count, c, bMerge);
+            device->setPixelsF(fPos, count, c2, bMerge);
     }
 
     // SerializeToJSON

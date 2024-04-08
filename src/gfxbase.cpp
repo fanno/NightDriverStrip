@@ -264,6 +264,8 @@ GFXBase::GFXBase(int w, int h) : Adafruit_GFX(w, h),
         FillGetNoise();
     #endif
 
+//    memset8(RGBWleds, 0, sizeof(struct CRGBW) * (w*h));
+
     debugV("Setting up palette");
     loadPalette(0);
     ResetOscillators();
